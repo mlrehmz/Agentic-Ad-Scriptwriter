@@ -1,6 +1,6 @@
 import pytest
 import time
-from src.core.client import GroqClient
+from src.client import GroqClient
 
 
 @pytest.fixture(scope="session")
