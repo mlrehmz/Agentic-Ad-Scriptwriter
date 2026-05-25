@@ -3,7 +3,7 @@ from pathlib import Path
 from groq import AsyncGroq
 from dotenv import load_dotenv
 
-_ROOT = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(_ROOT / ".env")
 
 
@@ -39,3 +39,23 @@ class GroqClient:
             max_tokens=max_tokens,
         )
         return response.choices[0].message.content
+
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        model: str = DEFAULT_MODEL,
+        temperature: float = 1.0,
+        max_tokens: int = 1024,
+    ) -> str:
+        response = await self._client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content
+
+
+def get_client() -> GroqClient:
+    return GroqClient()

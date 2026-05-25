@@ -2,13 +2,14 @@
 Shared graph state — every node reads and writes this TypedDict.
 
 Reducers:
-  • conversation  — replaced wholesale each actor turn (actor returns full list)
-  • Everything else — last-write wins (default LangGraph behaviour)
+    • conversation / interrupt_log — appended via operator.add
+    • Everything else — last-write wins (default LangGraph behaviour)
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TypedDict
+from operator import add
+from typing import Annotated, Any, Dict, List, Optional, TypedDict
 
 
 # ── sub-types ──────────────────────────────────────────────────────────────
@@ -22,10 +23,21 @@ class AgentConfig(TypedDict):
 
 
 class InterruptCondition(TypedDict):
-    """Logic-based interrupt: after a given turn, a specific agent cuts in."""
-    after_turn: int           # inject this agent INSTEAD OF the normal next speaker
+    """Logic-based interrupt: inject a specific agent when conditions are met."""
+    type: str                 # "after_n_turns" | "on_keyword"
+    after_turn: Optional[int] # for after_n_turns, 0-based turn index
+    keyword: Optional[str]    # for on_keyword, case-insensitive match
     agent_name: str
     reason: str               # why they interrupt here (stored for critic context)
+
+
+class InterruptEvent(TypedDict):
+    """Interrupt that actually fired during the actor loop."""
+    turn: int
+    agent_name: str
+    type: str
+    reason: str
+    keyword: Optional[str]
 
 
 class Plan(TypedDict):
@@ -52,8 +64,10 @@ class AgentGraphState(TypedDict):
     agents_list: List[AgentConfig]      # convenience copy of plan["agents"]
 
     # ── actor loop ──
-    conversation: List[Dict[str, str]]  # [{"agent": name, "line": text}, …]
+    conversation: Annotated[List[Dict[str, str]], add]  # [{"agent": name, "line": text}, …]
     current_turn: int
+    current_speaker: Optional[str]
+    interrupt_log: Annotated[List[InterruptEvent], add]
 
     # ── human gate ──
     plan_approved: bool

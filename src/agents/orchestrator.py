@@ -14,13 +14,20 @@ import json
 import re
 
 from langgraph.config import get_stream_writer
+from langgraph.types import interrupt
 
-from ..client import GroqClient
-from ..prompts import ORCHESTRATOR_SYSTEM, ORCHESTRATOR_USER
-from ..states import AgentGraphState
+# Allow running as a script (no package context) or as a module.
+try:
+    from ..client import get_client
+    from ..prompts import ORCHESTRATOR_SYSTEM, ORCHESTRATOR_USER
+    from ..states import AgentGraphState
+except ImportError:
+    from client import get_client
+    from prompts import ORCHESTRATOR_SYSTEM, ORCHESTRATOR_USER
+    from states import AgentGraphState
 
 # Model used for deep reasoning
-REASONING_MODEL = "deepseek-r1-distill-llama-70b"
+REASONING_MODEL = "llama-3.3-70b-versatile"
 
 
 def _strip_think_tags(text: str) -> str:
@@ -48,27 +55,25 @@ def _extract_json(text: str) -> dict:
     raise ValueError(f"No JSON found in orchestrator response:\n{text[:600]}")
 
 
-def orchestrator_node(state: AgentGraphState) -> dict:
+async def orchestrator_node(state: AgentGraphState) -> dict:
     """LangGraph node: generate the production plan."""
     writer = get_stream_writer()
-    client = GroqClient()
+    client = get_client()
 
     writer({"type": "status", "data": "🎬  Orchestrator is reasoning about your scene…"})
 
-    response = client.chat.completions.create(
-        model=REASONING_MODEL,
-        messages=[
+    raw = await client.chat(
+        [
             {"role": "system", "content": ORCHESTRATOR_SYSTEM},
             {
                 "role": "user",
                 "content": ORCHESTRATOR_USER.format(topic=state["topic"]),
             },
         ],
+        model=REASONING_MODEL,
         temperature=0.6,
         max_tokens=2048,
     )
-
-    raw: str = response.choices[0].message.content or ""
     cleaned = _strip_think_tags(raw)
 
     try:
@@ -80,13 +85,32 @@ def orchestrator_node(state: AgentGraphState) -> dict:
 
     # Emit the plan for the harness to display / for the human gate
     writer({"type": "plan", "data": plan})
-    writer({"type": "status", "data": "✅  Plan generated — awaiting your approval."})
+    writer({"type": "status", "data": "✅  Plan generated."})
 
     return {
         "plan": plan,
         "agents_list": plan.get("agents", []),
         "conversation": [],
         "current_turn": 0,
+        "current_speaker": None,
+        "interrupt_log": [],
         "plan_approved": False,
         "final_script": None,
     }
+
+
+def plan_approval_node(state: AgentGraphState) -> dict:
+    """LangGraph node: optional human approval before actors start."""
+    writer = get_stream_writer()
+    writer({"type": "status", "data": "⏸️  Awaiting plan approval."})
+
+    approval = interrupt(
+        {
+            "prompt": "Approve the production plan? (y/n)",
+            "plan": state.get("plan"),
+        }
+    )
+    approved = str(approval).strip().lower() in {"y", "yes", "ok", "approve", "approved"}
+    writer({"type": "status", "data": "✅  Plan approved." if approved else "❌  Plan rejected."})
+
+    return {"plan_approved": approved}

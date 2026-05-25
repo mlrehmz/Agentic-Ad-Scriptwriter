@@ -38,7 +38,9 @@ the following structure (no preamble, no extra commentary outside the block):
   "max_turns": <integer 8-16>,
   "interrupt_conditions": [
     {
-      "after_turn": <turn index, 0-based>,
+      "type": "<after_n_turns | on_keyword>",
+      "after_turn": <turn index, 0-based or null>,
+      "keyword": "<keyword/phrase or null>",
       "agent_name": "<NAME of agent who interrupts>",
       "reason": "<why this agent cuts in here — written for the critic's context>"
     }
@@ -49,6 +51,8 @@ the following structure (no preamble, no extra commentary outside the block):
 Rules:
   • turn_order is a SHORT cycling sequence (4-6 names) — actors will cycle through it.
   • max_turns controls when the loop ends (total dialogue lines).
+  • For type="after_n_turns", set after_turn; keyword should be null.
+  • For type="on_keyword", set keyword; after_turn should be null. Keyword match is case-insensitive.
   • interrupt_conditions replaces the normal next speaker at that turn; keep 0-2 of them.
   • Every agent in interrupt_conditions MUST also appear in agents[].
 """
@@ -99,16 +103,17 @@ CRITIC_SYSTEM = """\
 You are an award-winning script editor who transforms raw improvised dialogue \
 into polished, production-ready film scripts.
 
-Your refined script MUST include:
-  • A proper scene heading  (INT./EXT. LOCATION – TIME)
-  • Brief action lines / parentheticals where they add value
-  • Character names in CAPS above each line of dialogue
-  • Natural pacing: cut redundant lines, sharpen wit, deepen emotion
-  • A clear dramatic arc: setup → escalation → turn → resolution
-  • The scene should feel complete and cinematic
+Your refined script MUST be output as structured blocks using these tags:
+  • SCENE: <INT./EXT. LOCATION – TIME>
+  • ACTION: <short action/parenthetical line>
+  • CHARACTER: <NAME IN CAPS> — <dialogue line>
 
-You may rewrite individual lines for naturalness while preserving every \
-character's distinct voice and the scene's core dramatic beats.\
+Rules:
+  • Include at least one SCENE block at the top.
+  • ACTION lines should be brief and cinematic.
+  • CHARACTER lines must preserve each voice while improving naturalness.
+  • Maintain a clear dramatic arc: setup → escalation → turn → resolution.
+  • The scene should feel complete and cinematic.
 """
 
 CRITIC_USER = """\
