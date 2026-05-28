@@ -1,6 +1,6 @@
 """
 Critic node:
-  • Model: deepseek-r1-distill-llama-70b
+    • Model: llama-3.3-70b-versatile
   • Job: Refine raw dialogue into a structured, production-ready script.
   • Streams the final script via get_stream_writer().
 """
@@ -25,12 +25,14 @@ CRITIC_MODEL = "llama-3.3-70b-versatile"
 
 
 def _format_conversation(conversation: List[dict[str, str]]) -> str:
+    """Flatten the conversation into a readable, line-by-line transcript."""
     if not conversation:
         return "(no dialogue)"
     return "\n".join(f"{item['agent']}: {item['line']}" for item in conversation)
 
 
 def _format_interrupts(interrupt_log: List[InterruptEvent]) -> str:
+    """Summarize interrupt events for the critic prompt."""
     if not interrupt_log:
         return "None"
     lines = []

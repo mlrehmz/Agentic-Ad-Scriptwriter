@@ -26,6 +26,7 @@ ACTOR_MODEL = "llama-3.1-8b-instant"
 
 
 def _format_conversation(conversation: List[Dict[str, str]], max_lines: int = 10) -> str:
+    """Format the most recent dialogue lines for prompt context."""
     if not conversation:
         return "(no dialogue yet)"
     recent = conversation[-max_lines:]
@@ -33,10 +34,12 @@ def _format_conversation(conversation: List[Dict[str, str]], max_lines: int = 10
 
 
 def _get_agent_map(agents: List[AgentConfig]) -> Dict[str, AgentConfig]:
+    """Build a case-insensitive lookup for agent configs by name."""
     return {agent["name"].upper(): agent for agent in agents}
 
 
 def _normalize_condition(condition: InterruptCondition) -> InterruptCondition:
+    """Ensure each interrupt condition has a concrete type set."""
     condition_type = condition.get("type")
     if not condition_type:
         if condition.get("after_turn") is not None:
@@ -54,6 +57,7 @@ def _find_interrupt(
     current_turn: int,
     last_line: Optional[str],
 ) -> Optional[InterruptCondition]:
+    """Return the first interrupt rule that matches the current state."""
     if not conditions:
         return None
 
@@ -72,6 +76,7 @@ def _find_interrupt(
 
 
 def _select_speaker(plan: dict, current_turn: int, interrupt: Optional[InterruptCondition]) -> str:
+    """Pick the speaker for this turn, honoring any interrupt override."""
     if interrupt:
         return interrupt.get("agent_name", "").upper()
 
@@ -82,6 +87,7 @@ def _select_speaker(plan: dict, current_turn: int, interrupt: Optional[Interrupt
 
 
 def _build_interrupt_note(interrupt: Optional[InterruptCondition]) -> str:
+    """Create a short, prompt-friendly note describing the interrupt."""
     if not interrupt:
         return ""
     reason = interrupt.get("reason", "")
@@ -94,6 +100,7 @@ def _build_interrupt_note(interrupt: Optional[InterruptCondition]) -> str:
 def _build_interrupt_event(
     turn: int, interrupt: InterruptCondition, speaker: str
 ) -> InterruptEvent:
+    """Capture an interrupt firing for later critic context."""
     return {
         "turn": turn,
         "agent_name": speaker,

@@ -19,6 +19,7 @@ except ImportError:
 
 
 def _should_continue(state: AgentGraphState) -> str:
+    """Route actor turns until max_turns is reached, then hand off to critic."""
     plan = state.get("plan") or {}
     max_turns = int(plan.get("max_turns", 0))
     current_turn = int(state.get("current_turn", 0))
@@ -28,10 +29,12 @@ def _should_continue(state: AgentGraphState) -> str:
 
 
 def _plan_gate(state: AgentGraphState) -> str:
+    """Gate actor execution on an explicit plan approval step."""
     return "actor" if state.get("plan_approved") else "end"
 
 
 def build_graph(*, approve_plan: bool = False):
+    """Build and compile the LangGraph state machine for this workflow."""
     builder = StateGraph(state_schema=AgentGraphState)
 
     builder.add_node("orchestrator", orchestrator_node)

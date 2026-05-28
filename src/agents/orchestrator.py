@@ -1,6 +1,6 @@
 """
 Orchestrator node:
-  • Model:  deepseek-r1-distill-llama-70b  (reasoning model)
+    • Model:  llama-3.3-70b-versatile  (reasoning model)
   • Job:    Deep-reason about the topic, output a structured JSON plan.
   • Strips <think>…</think> from the response before parsing.
   • Streams 'status' and 'plan' chunks via get_stream_writer().
