@@ -255,7 +255,7 @@ class StudioTests(unittest.TestCase):
         self.assertTrue(engine.stopped)
 
     def test_html_contains_core_flow_and_status(self):
-        for text in ('aria-live="polite"', "Make three directions", "Objection Gremlin", "Ad Battle Arena", "Campaign deliverables"):
+        for text in ('aria-live="polite"', "Generate 3 routes", "Objection Gremlin", "Ad Battle Arena", "Campaign deliverables"):
             with self.subTest(text=text):
                 self.assertIn(text, studio._HTML)
 

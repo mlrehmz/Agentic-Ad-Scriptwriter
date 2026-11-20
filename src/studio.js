@@ -9,6 +9,7 @@
     draft: null,
     previous: null,
     baseline: null,
+    submittedBrief: null,
     comparisonRequest: 0,
     checkRequest: 0,
     flowVersion: 0,
@@ -128,8 +129,10 @@
     byId("gremlin").classList.remove("hidden");
     byId("arena").classList.remove("hidden");
     byId("campaign").classList.remove("hidden");
-    document.querySelectorAll("#directions .card").forEach((item) => item.classList.remove("selected"));
+    document.querySelectorAll("#directions .route-row").forEach((item) => item.classList.remove("selected"));
+    document.querySelectorAll("#directions [data-select]").forEach((button) => button.setAttribute("aria-pressed", "false"));
     card.classList.add("selected");
+    card.querySelector("[data-select]").setAttribute("aria-pressed", "true");
     fillArena(direction).catch((error) => { byId("vote-note").textContent = error.message; });
   }
 
@@ -151,7 +154,7 @@
     state.backendLabel = state.backend;
     byId("comparison").replaceChildren();
     byId("directions").classList.remove("empty-state");
-    byId("directions").innerHTML = '<article class="card"><span class="tag">Working</span><h3>Making directions…</h3><p>This may take a moment for a hosted model.</p></article>';
+    byId("directions").innerHTML = '<article class="generation-error" role="status"><strong>Generating 3 routes…</strong><p>Your brief stays available while we write.</p></article>';
     byId("edit-section").classList.add("hidden");
     byId("gremlin").classList.add("hidden");
     byId("arena").classList.add("hidden");
@@ -160,25 +163,52 @@
       const result = await api("generate", { brief: briefFromForm(), backend: state.backend });
       if (flowVersion !== state.flowVersion) return;
       state.brief = result.brief;
+      state.submittedBrief = JSON.stringify(result.brief);
       state.backendLabel = result.backend;
       byId("backend-pill").textContent = result.backend;
       byId("directions").innerHTML = result.directions.map((direction, index) => `
-        <article class="card"><span class="tag">${escapeHtml(direction.name)}</span>
-          <h3>${escapeHtml(direction.concept)}</h3><p>${escapeHtml(direction.hook)}</p>
-          <div class="script">${escapeHtml(direction.script)}</div>
-          <button data-select="${index}">Choose this direction</button></article>`).join("");
+        <article class="route-row"><div><span class="tag">${escapeHtml(direction.name)}</span><p class="route-angle">${escapeHtml(direction.concept)}</p></div>
+          <h3>${escapeHtml(direction.hook)}</h3><button data-select="${index}" aria-pressed="false">View script</button></article>`).join("");
       document.querySelectorAll("[data-select]").forEach((button, index) => {
-        button.onclick = () => chooseDirection(result.directions[index], button.closest(".card"));
+        button.onclick = () => chooseDirection(result.directions[index], button.closest(".route-row"));
       });
       byId("status").textContent = "Three directions are ready.";
+      if (document.activeElement === button) {
+        byId("directions-heading").focus();
+      }
     } catch (error) {
       if (flowVersion !== state.flowVersion) return;
       byId("directions").innerHTML = `<article class="card"><span class="tag">Could not generate</span><p>${escapeHtml(error.message)}</p></article>`;
-      byId("status").textContent = error.message;
+      byId("directions").innerHTML = `<article class="generation-error"><strong>Couldn’t make the routes.</strong><p>${escapeHtml(error.message)}</p><button id="try-again">Try again</button></article>`;
+      byId("status").textContent = "Generation failed. Your brief is still here.";
+      byId("try-again").onclick = () => byId("generate").click();
     } finally {
       button.disabled = false;
     }
   };
+
+  byId("load-example").onclick = () => {
+    const hasDraft = ["name", "description", "audience", "benefit"].some((id) => byId(id).value.trim());
+    if (hasDraft && !window.confirm("Replace the current brief with the Northstar Coffee example?")) return;
+    byId("name").value = "Northstar Coffee";
+    byId("description").value = "A small-batch coffee subscription";
+    byId("audience").value = "People working from home";
+    byId("benefit").value = "Good coffee without another errand";
+    byId("generate").focus();
+  };
+
+  for (const id of ["name", "description", "audience", "benefit", "tone", "duration", "platform", "cta", "required", "prohibited"]) {
+    byId(id).addEventListener("input", updateBriefStatus);
+    byId(id).addEventListener("change", updateBriefStatus);
+  }
+
+  function updateBriefStatus() {
+    const label = byId("brief-edited");
+    if (!state.submittedBrief) return;
+    const changed = JSON.stringify(briefFromForm()) !== state.submittedBrief;
+    label.classList.toggle("hidden", !changed);
+    byId("settings-summary").textContent = `${byId("duration").value} seconds · ${byId("platform").value} · ${byId("tone").value}`;
+  }
 
   byId("script").oninput = () => {
     state.scriptVersion += 1;

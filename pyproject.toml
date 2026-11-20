@@ -13,4 +13,4 @@ voice = ["pyttsx3>=2.98"]
 test = ["pytest>=9.0.3"]
 
 [tool.setuptools.package-data]
-src = ["studio.js", "studio.css"]
+src = ["studio.js", "studio.css", "advertising/assets/*.webp"]
