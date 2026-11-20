@@ -1,12 +1,10 @@
 # Agentic Ad Scriptwriter
 
+![Agentic Ad Scriptwriter architecture](agentic-ad-scriptwriter-architecture.png)
+
 **An editorial workspace for turning a product brief into short-form ad concepts, scripts, and campaign-ready variations.**
 
 The project combines a local-first browser studio with an optional LangGraph writers’ room. The studio helps a person compare three creative directions, refine a script, test it against an audience objection, and assemble a reviewable campaign pack. The default mock mode runs locally without an API key.
-
-![Editorial proof sheets on a copywriter's desk](src/advertising/assets/proof-desk.webp)
-
-*The Studio’s local first-visit artwork: three blank proof sheets and a pencil. The image is served from the repository; it is not a product screenshot.*
 
 ## What you can do
 
@@ -86,31 +84,44 @@ Add `--approve-plan` to pause for human review of the generated plan before acto
 
 ```mermaid
 flowchart LR
-  B[Ad brief] --> V[Brief validation]
-  V --> D[Three creative directions]
-  D --> E[Script editing and checks]
-  E --> O[Audience objection]
-  O --> P[Campaign pack]
-  P --> X[Text export]
-
-  subgraph Studio[Browser Studio]
-    B
-    D
-    E
-    O
-    P
-    X
+  subgraph Studio[Ad Studio · browser + local HTTP server]
+    B[Product brief] --> V[Parse and validate AdBrief]
+    V --> D[Generate three directions]
+    D --> S[Select and edit script]
+    S --> R[Targeted rewrite]
+    S --> G[Text checks]
+    S --> O[Audience objection]
+    S --> P[Campaign pack]
+    P --> X[Download text]
+    S --> A[Optional local voice preview]
   end
 
-  subgraph OptionalGraph[Optional LangGraph CLI]
-    T[Topic] --> L[Orchestrator]
-    L --> A{Plan approval?}
-    A -->|Approved or disabled| W[Sequential actor loop]
-    A -->|Rejected| Z[End]
-    W --> C[Critic]
-    C --> F[Formatted screenplay]
+  subgraph Providers[Writing providers]
+    M[Deterministic mock]
+    H[Optional Groq hosted API]
+    L[Optional local GGUF via llama.cpp]
+  end
+  D -. uses .-> M
+  R -. uses .-> M
+  O -. uses .-> M
+  D -. or .-> H
+  R -. or .-> H
+  O -. or .-> H
+  D -. or .-> L
+  R -. or .-> L
+  O -. or .-> L
+
+  subgraph Legacy[Separate optional LangGraph CLI]
+    T[Screenplay topic] --> OR[Orchestrator]
+    OR --> AP{Human approval enabled?}
+    AP -->|Approved or disabled| ACT[Actor turns]
+    AP -->|Rejected| END([End])
+    ACT --> CR[Critic]
+    CR --> FS[Formatted screenplay]
   end
 ```
+
+The diagram shows implemented paths. The mock provider composes deterministic copy locally; hosted and local model providers are optional. Voice preview is also optional. The LangGraph CLI is a separate screenplay workflow, not part of the ad-writing Studio.
 
 The Studio’s `AdBrief` domain object owns brief parsing and validation. The HTTP handler adapts browser requests to domain operations; provider adapters isolate mock, hosted, and local text generation. The separate LangGraph harness owns its own plan, actor loop, interrupt handling, and critic. See [Architecture and domain model](docs/ARCHITECTURE.md).
 
