@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import uuid
 from typing import Any, Dict
@@ -48,13 +47,22 @@ def _print_custom_chunk(chunk: Dict[str, Any]) -> None:
 async def _stream_once(graph, payload, config) -> Any:
     """Run the graph once and return any interrupt payload."""
     interrupt_payload = None
-    async for chunk in graph.astream(payload, config, stream_mode="custom"):
-        if isinstance(chunk, dict) and "__interrupt__" in chunk:
-            # Interrupts are handled by the caller (human approval loop).
-            interrupt_payload = chunk["__interrupt__"]
+    async for part in graph.astream(
+        payload,
+        config,
+        stream_mode=["custom", "updates"],
+        version="v2",
+    ):
+        if not isinstance(part, dict):
             continue
-        if isinstance(chunk, dict) and "type" in chunk:
-            _print_custom_chunk(chunk)
+        if part.get("type") == "custom":
+            chunk = part.get("data")
+            if isinstance(chunk, dict):
+                _print_custom_chunk(chunk)
+        elif part.get("type") == "updates":
+            updates = part.get("data")
+            if isinstance(updates, dict) and "__interrupt__" in updates:
+                interrupt_payload = updates["__interrupt__"]
     return interrupt_payload
 
 

@@ -1,13 +1,16 @@
 [project]
 name = "masproject"
 version = "0.1.0"
-description = "Add your description here"
+description = "A local-first creative studio for short advertisements"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-    "groq>=1.2.0",
-    "langgraph>=1.2.1",
-    "pytest>=9.0.3",
-    "pytest-asyncio>=1.3.0",
-    "python-dotenv>=1.2.2",
-]
+dependencies = []
+
+[project.optional-dependencies]
+workflow = ["langgraph>=1.2.1", "groq>=1.2.0", "python-dotenv>=1.2.2"]
+local-model = ["llama-cpp-python>=0.3.0"]
+voice = ["pyttsx3>=2.98"]
+test = ["pytest>=9.0.3"]
+
+[tool.setuptools.package-data]
+src = ["studio.js", "studio.css"]

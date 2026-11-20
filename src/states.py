@@ -38,6 +38,7 @@ class InterruptEvent(TypedDict):
     type: str
     reason: str
     keyword: Optional[str]
+    after_turn: Optional[int]
 
 
 class Plan(TypedDict):

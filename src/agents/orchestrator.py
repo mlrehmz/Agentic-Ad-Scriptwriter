@@ -1,6 +1,6 @@
 """
 Orchestrator node:
-    • Model:  llama-3.3-70b-versatile  (reasoning model)
+    • Model:  configured in src/model_config.py
   • Job:    Deep-reason about the topic, output a structured JSON plan.
   • Strips <think>…</think> from the response before parsing.
   • Streams 'status' and 'plan' chunks via get_stream_writer().
@@ -21,13 +21,17 @@ try:
     from ..client import get_client
     from ..prompts import ORCHESTRATOR_SYSTEM, ORCHESTRATOR_USER
     from ..states import AgentGraphState
+    from ..model_config import GROQ_ORCHESTRATOR_MODEL
+    from ..plan_validation import validate_plan
 except ImportError:
     from client import get_client
     from prompts import ORCHESTRATOR_SYSTEM, ORCHESTRATOR_USER
     from states import AgentGraphState
+    from model_config import GROQ_ORCHESTRATOR_MODEL
+    from plan_validation import validate_plan
 
 # Model used for deep reasoning
-REASONING_MODEL = "llama-3.3-70b-versatile"
+REASONING_MODEL = GROQ_ORCHESTRATOR_MODEL
 
 
 def _strip_think_tags(text: str) -> str:
@@ -62,26 +66,39 @@ async def orchestrator_node(state: AgentGraphState) -> dict:
 
     writer({"type": "status", "data": "🎬  Orchestrator is reasoning about your scene…"})
 
-    raw = await client.chat(
-        [
-            {"role": "system", "content": ORCHESTRATOR_SYSTEM},
-            {
-                "role": "user",
-                "content": ORCHESTRATOR_USER.format(topic=state["topic"]),
-            },
-        ],
-        model=REASONING_MODEL,
-        temperature=0.6,
-        max_tokens=2048,
-    )
-    cleaned = _strip_think_tags(raw)
-
-    try:
-        plan = _extract_json(cleaned)
-    except (ValueError, json.JSONDecodeError) as exc:
-        # Emit the raw text so the user can debug, then re-raise
-        writer({"type": "error", "data": f"Orchestrator JSON parse failed: {exc}"})
-        raise
+    messages = [
+        {"role": "system", "content": ORCHESTRATOR_SYSTEM},
+        {
+            "role": "user",
+            "content": ORCHESTRATOR_USER.format(topic=state["topic"]),
+        },
+    ]
+    plan = None
+    last_error = None
+    for _ in range(2):
+        request_options = {
+            "model": REASONING_MODEL,
+            "temperature": 0.6,
+            "max_completion_tokens": 4096,
+            "reasoning_effort": "medium",
+        }
+        if REASONING_MODEL.startswith("openai/gpt-oss-"):
+            request_options["response_format"] = {"type": "json_object"}
+        raw = await client.chat(messages, **request_options)
+        try:
+            plan = validate_plan(_extract_json(_strip_think_tags(raw)))
+            break
+        except (ValueError, json.JSONDecodeError) as exc:
+            last_error = exc
+            messages = [
+                {"role": "system", "content": ORCHESTRATOR_SYSTEM},
+                {"role": "user", "content": ORCHESTRATOR_USER.format(topic=state["topic"])},
+                {"role": "assistant", "content": raw},
+                {"role": "user", "content": f"Repair this plan as valid JSON matching the required schema. Validation error: {exc}"},
+            ]
+    if plan is None:
+        writer({"type": "error", "data": f"The plan could not be validated after one repair: {last_error}"})
+        raise ValueError("The generated plan is invalid. Please try again.") from last_error
 
     # Emit the plan for the harness to display / for the human gate
     writer({"type": "plan", "data": plan})

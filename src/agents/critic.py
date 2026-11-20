@@ -1,6 +1,6 @@
 """
 Critic node:
-    • Model: llama-3.3-70b-versatile
+    • Model: configured in src/model_config.py
   • Job: Refine raw dialogue into a structured, production-ready script.
   • Streams the final script via get_stream_writer().
 """
@@ -16,12 +16,14 @@ try:
     from ..client import get_client
     from ..prompts import CRITIC_SYSTEM, CRITIC_USER
     from ..states import AgentGraphState, InterruptEvent
+    from ..model_config import GROQ_CRITIC_MODEL
 except ImportError:
     from client import get_client
     from prompts import CRITIC_SYSTEM, CRITIC_USER
     from states import AgentGraphState, InterruptEvent
+    from model_config import GROQ_CRITIC_MODEL
 
-CRITIC_MODEL = "llama-3.3-70b-versatile"
+CRITIC_MODEL = GROQ_CRITIC_MODEL
 
 
 def _format_conversation(conversation: List[dict[str, str]]) -> str:
@@ -73,10 +75,13 @@ async def critic_node(state: AgentGraphState) -> dict:
         ],
         model=CRITIC_MODEL,
         temperature=0.4,
-        max_tokens=2048,
+        max_completion_tokens=3072,
+        reasoning_effort="low",
     )
 
     final_script = (refined or "").strip()
+    if not final_script:
+        raise ValueError("The editor returned an empty script. Please try again.")
     writer({"type": "critic", "data": final_script})
 
     return {"final_script": final_script}
