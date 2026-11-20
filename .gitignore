@@ -4,12 +4,32 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
-# Virtual environments and local secrets
+# Local environments and secrets
 .venv/
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
+
+# Machine-specific editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
 
 # Build artifacts
 build/
 dist/
 *.egg-info/
+
+# Local run artifacts
+*.log
+instance/
