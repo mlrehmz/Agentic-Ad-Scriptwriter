@@ -1,76 +1,141 @@
-# Ad Studio
+# Agentic Ad Scriptwriter
 
-A local-first creative studio for short advertisements. Start with a concise brief, compare three creative directions, shape one with targeted rewrites, challenge it with an audience objection, compare it with a one-prompt baseline, and export a compact campaign pack.
+**An editorial workspace for turning a product brief into short-form ad concepts, scripts, and campaign-ready variations.**
 
-The default mock engine is deterministic and fully offline. It uses only the Python standard library. Its copy is illustrative and does not claim product facts beyond the brief.
+The project combines a local-first browser studio with an optional LangGraph writers’ room. The studio helps a person compare three creative directions, refine a script, test it against an audience objection, and assemble a reviewable campaign pack. The default mock mode runs locally without an API key.
 
-## Run the no-key demo
+![Editorial proof sheets on a copywriter's desk](src/advertising/assets/proof-desk.webp)
 
-Requires Python 3.13 or newer.
+*The Studio’s local first-visit artwork: three blank proof sheets and a pencil. The image is served from the repository; it is not a product screenshot.*
 
-```sh
-python -m src.studio
+## What you can do
+
+- **Start from a short brief.** Add the product, substantiated facts, audience, and main benefit. Script settings include tone, length, platform, call to action, and claims to avoid.
+- **Compare three routes.** Review Clear, Playful, and Bold hooks side by side, then open a route in the script editor.
+- **Refine with control.** Try focused rewrites, accept or undo each draft, and inspect checks for required details, prohibited claims, and estimated duration.
+- **Pressure-test the copy.** Ask for one audience objection and decide whether to set it aside, answer it with a verified detail, or include the question in a draft.
+- **Build a campaign pack.** Preview a main script, short cut, alternate hooks, and calls to action, then download the pack as text.
+- **Choose a writing engine.** Use the deterministic offline demo, a hosted Groq model, or a local GGUF model through `llama.cpp`.
+
+The checks are text-based guardrails. They do not verify factual truth, provide legal review, or predict ad performance.
+
+## Try the offline Studio
+
+Requirements: Python 3.13+ and [uv](https://docs.astral.sh/uv/).
+
+```bash
+uv sync --extra test
+uv run python -m src.studio
 ```
 
-Open <http://127.0.0.1:8765>. Use the mock engine to explore without a key, account, network connection, GPU, or model download. The server binds to localhost only. Press Ctrl+C to stop it.
+Open <http://127.0.0.1:8765>. The server binds to localhost. Mock generation, the local artwork, and the built-in campaign tools make no model-provider requests. Stop the server with `Ctrl+C`.
 
-## Writing engines
+To load the example brief, choose **Load example brief**. It fills the form with Northstar Coffee so you can inspect or edit the values before generating.
 
-### Hosted Groq
+## Optional writing engines
 
-Set `GROQ_API_KEY` and optionally `GROQ_MODEL`, then choose **Groq · hosted** in the studio. The studio defaults to `openai/gpt-oss-20b`. Hosted generation sends the brief and copy to Groq. Set `GROQ_MODEL` for the studio, or `GROQ_ORCHESTRATOR_MODEL`, `GROQ_ACTOR_MODEL`, and `GROQ_CRITIC_MODEL` to override the legacy graph. The graph defaults to `openai/gpt-oss-120b` for planning and editing and `openai/gpt-oss-20b` for actor turns. Groq lists GPT-OSS 20B and 120B as replacements for the repository’s retired Llama model IDs. Model availability depends on the account and provider; errors are shown in the studio. No hosted call is made by the default demo.
+### Groq hosted models
 
-### Local GGUF with llama.cpp
+Install the workflow extra and set your key in the shell environment. Do not commit a real `.env` file or paste a key into source code.
 
-Install the optional runtime and provide a model file you already have:
-
-```sh
-pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
-export LLAMA_CPP_MODEL_PATH=/absolute/path/to/model.gguf
-python -m src.studio
+```bash
+uv sync --extra workflow
+export GROQ_API_KEY="your-key"
+uv run python -m src.studio
 ```
 
-The app never downloads model weights. The runtime may need a native compiler or platform-specific setup; this path has not been verified on another machine. The first use loads the chosen file into memory. This machine's Intel UHD 620 is integrated graphics, so the Python runtime uses CPU by default unless separately configured. A small quantized GGUF is the practical starting point; context and speed depend on the selected file and available RAM.
+Choose **Groq · hosted** in the Studio. Hosted generation sends the brief and copy to Groq. The Studio uses `GROQ_MODEL` when set; otherwise it uses the model configured in `src/model_config.py`. Read [Privacy and data handling](docs/PRIVACY.md) before using hosted generation.
+
+### Local GGUF model
+
+Install the optional runtime and point the app at a model file already on your computer:
+
+```bash
+uv sync --extra local-model
+export LLAMA_CPP_MODEL_PATH="/absolute/path/to/model.gguf"
+uv run python -m src.studio
+```
+
+The application does not download model weights. `llama-cpp-python` may require platform-specific build tools. Runtime speed and context capacity depend on the selected model and hardware.
 
 ### Local voice preview
 
-Install eSpeak NG and the optional TTS wrapper on Fedora, then start the studio:
+Voice output is optional and uses the operating system’s installed speech engine. On Fedora, install eSpeak NG, then install the project extra:
 
-```sh
+```bash
 sudo dnf install espeak-ng
-pip install '.[voice]'
-python -m src.studio
+uv sync --extra voice
+uv run python -m src.studio
 ```
 
-The studio lists voices found by `pyttsx3` and lets you select a system voice. Voice preview appears only when `pyttsx3` and a system engine are available. Voices and languages come from that operating system's installed speech engine. The app does not fetch voices. Character labels are omitted from the spoken copy. One selected system voice reads the whole script; separate voice assignment and timed pause controls are not implemented. The WAV is generated in a temporary directory and returned to the browser for playback or download. This has not been verified on the current machine, so audio availability will be determined at runtime.
+Voice availability depends on the host system. A single selected system voice reads the script; separate character voices are not implemented.
 
-## Existing LangGraph workflow
+## Optional LangGraph writers’ room
 
-The original CLI workflow remains available as an optional extra:
+The CLI workflow is a separate experimental screenplay workflow. It is not the engine behind the Studio’s ad-writing flow.
 
-```sh
-pip install '.[workflow]'
-export GROQ_API_KEY=...
-python -m src.main --topic "A short ad about ..."
+```bash
+uv sync --extra workflow
+export GROQ_API_KEY="your-key"
+uv run python -m src.main --topic "Two neighbors negotiate over a shared garden"
 ```
 
-The Studio's mock/local/hosted writer interface is separate from the legacy graph. The graph still provides the original planner, sequential persona actors, critic, progress events, and optional human plan approval. It is not used by the default local demo.
+Add `--approve-plan` to pause for human review of the generated plan before actor turns begin. The graph streams plan, dialogue, and final-script updates. Its current in-memory checkpointer is process-local; an approval run cannot be recovered after the process exits.
 
-## Feedback and privacy
+## Architecture
 
-Battle Arena votes are held in browser local storage and are not sent to the server. The studio does not save briefs between sessions. The hosted mode sends generation prompts to Groq. Errors do not include prompt text or API keys in server logs.
+```mermaid
+flowchart LR
+  B[Ad brief] --> V[Brief validation]
+  V --> D[Three creative directions]
+  D --> E[Script editing and checks]
+  E --> O[Audience objection]
+  O --> P[Campaign pack]
+  P --> X[Text export]
 
-Checks show textual presence of the requested CTA and required points, exact matches for prohibited phrases, and an approximate speaking duration. They are simple guardrails, not legal review or evidence that an advertisement will perform.
+  subgraph Studio[Browser Studio]
+    B
+    D
+    E
+    O
+    P
+    X
+  end
 
-## Development checks
-
-Create and activate a project virtual environment with `uv`, then install the test extra:
-
-```sh
-uv venv
-source .venv/bin/activate
-uv pip install -e '.[test]'
-pytest
+  subgraph OptionalGraph[Optional LangGraph CLI]
+    T[Topic] --> L[Orchestrator]
+    L --> A{Plan approval?}
+    A -->|Approved or disabled| W[Sequential actor loop]
+    A -->|Rejected| Z[End]
+    W --> C[Critic]
+    C --> F[Formatted screenplay]
+  end
 ```
 
-The test suite uses pytest. The default Studio and its mock engine need no API key; hosted model checks need a Groq API key.
+The Studio’s `AdBrief` domain object owns brief parsing and validation. The HTTP handler adapts browser requests to domain operations; provider adapters isolate mock, hosted, and local text generation. The separate LangGraph harness owns its own plan, actor loop, interrupt handling, and critic. See [Architecture and domain model](docs/ARCHITECTURE.md).
+
+## Development and tests
+
+```bash
+uv sync --extra test
+uv run pytest
+```
+
+Tests cover brief validation, Studio workflows, provider request construction, actor logic, plan validation, and compiled-graph approval and resume paths. Hosted-provider tests use mocked HTTP responses; run a live Groq workflow separately when provider behavior needs checking.
+
+## Project status
+
+This is a portfolio project in active development. The browser Studio’s offline path is usable; hosted and local model paths depend on external credentials or local runtime setup. The LangGraph CLI remains a separate experimental screenplay harness. Current limitations and next candidates are documented in the [roadmap](docs/ROADMAP.md).
+
+## Portfolio summary
+
+> Built a local-first ad-writing studio with a validated brief domain, three-way creative comparison, reviewable script rewrites, copy guardrails, and campaign-pack export. Added an optional LangGraph writers’ room with streamed updates and human approval/resume, backed by focused integration tests.
+
+## Repository guide
+
+- [Architecture and domain model](docs/ARCHITECTURE.md)
+- [Privacy and data handling](docs/PRIVACY.md)
+- [Roadmap and current limitations](docs/ROADMAP.md)
+- [GitHub repository README guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)
+
+**License:** No license file is currently included. Public visibility does not itself grant permission to reuse or redistribute this project. Choose a license before inviting community contributions.
